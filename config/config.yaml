@@ -13,6 +13,8 @@ qc:
   detP_fraction_pass: 0.90
   max_na_fraction: 0.05
   remove_sex: false
+  sample_mean_detP_max: 0.01    
+  sample_max_failed_frac: 0.05
 
 normalization:
   method: "funnorm"            # "noob_quantile" or "funnorm"
