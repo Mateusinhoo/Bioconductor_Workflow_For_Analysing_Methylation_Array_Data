@@ -4,27 +4,27 @@ channels:
   - bioconda
   - nodefaults
 dependencies:
-  # Core R
+  # R core
   - r-base=4.3.*
-
-  # CRAN 
   - r-biocmanager
+
+  # CRAN (conda-forge)
   - r-optparse
   - r-yaml
   - r-data.table
-  - r-tidyverse
-  - r-ggplot2
-  - r-readr
   - r-dplyr
   - r-stringr
+  - r-readr
   - r-glue
   - r-here
   - r-janitor
-  - r-knitr
+  - r-ggplot2
   - r-rmarkdown
+  - r-knitr
   - r-matrixstats
+  - pandoc
 
-  # Bioconductor 
+  # Bioconductor (bioconda; R 4.3/Bioc 3.18 line)
   - bioconductor-minfi=1.48.*
   - bioconductor-limma=3.56.*
   - bioconductor-dmrcate=2.16.*
@@ -37,6 +37,6 @@ dependencies:
   - bioconductor-biostrings
   - bioconductor-delayedarray
 
-  # Manifests 
+  # Manifests (platform-available)
   - bioconductor-illuminahumanmethylation450kmanifest
   - bioconductor-illuminahumanmethylationepicmanifest
