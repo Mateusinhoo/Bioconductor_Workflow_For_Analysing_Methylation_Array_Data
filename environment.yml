@@ -1,14 +1,10 @@
 name: methylation-env
 channels:
   - conda-forge
-  - bioconda
   - nodefaults
 dependencies:
-  # R core
   - r-base=4.3.*
   - r-biocmanager
-
-  # CRAN (conda-forge)
   - r-optparse
   - r-yaml
   - r-data.table
@@ -23,20 +19,13 @@ dependencies:
   - r-knitr
   - r-matrixstats
   - pandoc
-
-  # Bioconductor (bioconda; R 4.3/Bioc 3.18 line)
-  - bioconductor-minfi=1.48.*
-  - bioconductor-limma=3.56.*
-  - bioconductor-dmrcate=2.16.*
-  - bioconductor-missmethyl=1.36.*
-  - bioconductor-illuminaio
-  - bioconductor-preprocesscore
-  - bioconductor-biocparallel
-  - bioconductor-summarizedexperiment
-  - bioconductor-genomicranges
-  - bioconductor-biostrings
-  - bioconductor-delayedarray
-
-  # Manifests (platform-available)
-  - bioconductor-illuminahumanmethylation450kmanifest
-  - bioconductor-illuminahumanmethylationepicmanifest
+  # build deps for source Bioc installs on macOS
+  - pkg-config
+  - cairo
+  - freetype
+  - harfbuzz
+  - fontconfig
+  - libpng
+  - llvm-openmp
+  - gfortran_osx-arm64  # Apple Silicon
+  - gfortran_osx-64     # Intel (solver picks the right one)
