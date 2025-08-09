@@ -1,26 +1,42 @@
-name: methycleanr
+name: methylation-env
 channels:
   - conda-forge
   - bioconda
-  - defaults
+  - nodefaults
 dependencies:
   # Core R
-  - r-base>=4.3,<4.4
+  - r-base=4.3.*
+
+  # CRAN 
   - r-biocmanager
-  - r-yaml
   - r-optparse
+  - r-yaml
+  - r-data.table
+  - r-tidyverse
   - r-ggplot2
+  - r-readr
+  - r-dplyr
+  - r-stringr
+  - r-glue
+  - r-here
+  - r-janitor
+  - r-knitr
+  - r-rmarkdown
   - r-matrixstats
-  - r-r.utils
 
-  # Bioconductor
-  - bioconductor-minfi
-  - bioconductor-limma
-  - bioconductor-dmrcate
-  - bioconductor-missmethyl
+  # Bioconductor 
+  - bioconductor-minfi=1.48.*
+  - bioconductor-limma=3.56.*
+  - bioconductor-dmrcate=2.16.*
+  - bioconductor-missmethyl=1.36.*
+  - bioconductor-illuminaio
+  - bioconductor-preprocesscore
+  - bioconductor-biocparallel
+  - bioconductor-summarizedexperiment
+  - bioconductor-genomicranges
+  - bioconductor-biostrings
+  - bioconductor-delayedarray
 
-  # 450k + EPIC manifests/annotation 
+  # Manifests 
   - bioconductor-illuminahumanmethylation450kmanifest
-  - bioconductor-illuminahumanmethylation450kanno.ilmn12.hg19
   - bioconductor-illuminahumanmethylationepicmanifest
-  - bioconductor-illuminahumanmethylationepicanno.ilm10b4.hg19
