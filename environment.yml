@@ -4,18 +4,23 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - r-base>=4.3
+  # Core R
+  - r-base>=4.3,<4.4
+  - r-biocmanager
   - r-yaml
+  - r-optparse
   - r-ggplot2
   - r-matrixstats
   - r-r.utils
-  - r-optparse
-  - bioconductor-biocmanager
+
+  # Bioconductor
   - bioconductor-minfi
   - bioconductor-limma
   - bioconductor-dmrcate
   - bioconductor-missmethyl
-  - bioconductor-illuminaHumanMethylation450kmanifest
-  - bioconductor-illuminaHumanMethylation450kanno.ilmn12.hg19
-  - bioconductor-illuminaHumanMethylationepicmanifest
-  - bioconductor-illuminaHumanMethylationepicanno.ilm10b4.hg19
+
+  # 450k + EPIC manifests/annotation 
+  - bioconductor-illuminahumanmethylation450kmanifest
+  - bioconductor-illuminahumanmethylation450kanno.ilmn12.hg19
+  - bioconductor-illuminahumanmethylationepicmanifest
+  - bioconductor-illuminahumanmethylationepicanno.ilm10b4.hg19
