@@ -23,7 +23,7 @@ extra_filters:
 
 # New: choose which samples to load before reading IDATs
 select:
-  enable: true
+  enable: false
   by: "indices"
   indices:
     start: 1500
