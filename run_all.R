@@ -202,9 +202,16 @@ if (isTRUE(steps$qc)) {
 
 # -------- Normalization --------
 if (isTRUE(steps$normalize)) {
-  logmsg("Normalizing (Noob -> Quantile)...")
-  mSet.noob <- preprocessNoob(rgSet)
-  mSet <- preprocessQuantile(mSet.noob)         # swap with preprocessFunnorm(rgSet) if desired
+  norm_method <- tolower(cfg$normalization$method %||% "noob_quantile")
+  logmsg("Normalizing with method: %s ...", norm_method)
+
+  if (norm_method == "funnorm") {
+    mSet <- preprocessFunnorm(rgSet)
+  } else {
+    mSet.noob <- preprocessNoob(rgSet)
+    mSet <- preprocessQuantile(mSet.noob)
+  }
+
   save_rds(mSet, file.path(OUT$data, "mSet.rds"))
   beta <- getBeta(mSet); M <- getM(mSet)
   save_rds(beta, file.path(OUT$data, "beta_raw.rds"))
