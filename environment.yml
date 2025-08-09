@@ -1,10 +1,7 @@
 name: methylation-env
 channels:
   - conda-forge
-  - bioconda
-  - defaults
-channel_priority: strict
-
+  - nodefaults
 dependencies:
   - r-base=4.3.*
   - r-biocmanager
@@ -12,23 +9,12 @@ dependencies:
   - r-yaml
   - r-data.table
   - r-dplyr
-  - r-stringr
   - r-readr
-  - r-glue
-  - r-here
-  - r-janitor
+  - r-stringr
   - r-ggplot2
   - r-rmarkdown
   - r-knitr
+  - r-here
+  - r-janitor
   - r-matrixstats
   - pandoc
-  # build deps for source Bioc installs on macOS
-  - pkg-config
-  - cairo
-  - freetype
-  - harfbuzz
-  - fontconfig
-  - libpng
-  - llvm-openmp
-  - gfortran_osx-arm64  # Apple Silicon
-  - gfortran_osx-64     # Intel (solver picks the right one)
