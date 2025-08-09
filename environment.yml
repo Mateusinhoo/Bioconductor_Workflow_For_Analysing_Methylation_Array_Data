@@ -1,9 +1,11 @@
 name: methylation-env
 channels:
   - conda-forge
+  - bioconda
   - nodefaults
 dependencies:
-  - r-base=4.3.*
+  - r-base=4.3
+  - pandoc
   - r-biocmanager
   - r-optparse
   - r-yaml
@@ -17,4 +19,18 @@ dependencies:
   - r-here
   - r-janitor
   - r-matrixstats
-  - pandoc
+
+  # Bioconductor + deps
+  - bioconductor-minfi
+  - bioconductor-missmethyl
+  - bioconductor-minfidata
+  - bioconductor-illuminaHumanMethylation450kmanifest
+  - bioconductor-illuminaHumanMethylation450kanno.ilmn12.hg19
+  - bioconductor-biocparallel
+  - bioconductor-rsamtools
+  - r-limma
+  - r-deldir
+  - r-hmisc
+  - r-statmod
+  - r-mclust
+  - r-genefilter
