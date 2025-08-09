@@ -178,11 +178,15 @@ if (tolower(array_type) == "auto") {
 }
 logmsg("Array type selected: %s", ann_choice)
 
-ann_obj <- switch(ann_choice,
-  "EPIC" = IlluminaHumanMethylationEPICanno.ilm10b4.hg19,
-  "450K" = IlluminaHumanMethylation450kanno.ilmn12.hg19,
+if (ann_choice == "EPIC") {
+  library(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
+  ann_obj <- IlluminaHumanMethylationEPICanno.ilm10b4.hg19
+} else if (ann_choice == "450K") {
+  library(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+  ann_obj <- IlluminaHumanMethylation450kanno.ilmn12.hg19
+} else {
   stop("Unknown array type: ", ann_choice)
-)
+}
 
 # -------- QC --------
 if (isTRUE(steps$qc)) {
