@@ -120,6 +120,9 @@ pheno <- normalize_pheno(pheno)
 
 # Apply selection BEFORE building targets
 pheno <- apply_selection(pheno, select)
+if (nrow(pheno) == 0) {
+  stop("No rows selected from samples.csv. Check your select block in config/config.yaml.")
+}
 
 if (mode == "idat") {
   require_cols(pheno, c("Slide","Array"))
