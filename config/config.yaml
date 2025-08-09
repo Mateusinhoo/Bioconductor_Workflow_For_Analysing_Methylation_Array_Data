@@ -1,0 +1,54 @@
+project_name: "example_project"
+
+input:
+  mode: "idat"                 # "idat" or "rgset"
+  idat_dir: "data/idats_raw"
+  phenotype_csv: "config/samples.csv"
+  rgset_rds: "config/rgSet.rds"
+
+array_type: "auto"             # "auto", "450k", or "epic"
+
+qc:
+  detP_threshold: 0.01
+  detP_fraction_pass: 0.90
+  max_na_fraction: 0.05
+  remove_sex: false
+
+extra_filters:
+  cross_reactive_list: ""
+  snp_probes_list: ""
+
+# New: choose which samples to load before reading IDATs
+select:
+  enable: true
+  by: "indices"
+  indices:
+    start: 1500
+    end: 2000
+  ids_column: "TCGA ID"
+  ids_file: ""
+  ids_list: []
+  keep_types: []
+  limit_n: null
+
+steps:
+  load: true
+  qc: true
+  normalize: true
+  explore: true
+  filter: true
+  idat_sanitize: false
+  dmp: false
+  dmr: false
+  go: false
+  dv: false
+  celltype_note: true
+
+model:
+  group_column: "Sample_Group"
+  contrast: "Case- Control"
+
+export:
+  beta_csv: false
+  M_csv: false
+  parquet: false

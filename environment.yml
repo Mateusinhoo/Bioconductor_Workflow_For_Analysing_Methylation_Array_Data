@@ -1,0 +1,21 @@
+name: methycleanr
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base>=4.3
+  - r-yaml
+  - r-ggplot2
+  - r-matrixstats
+  - r-r.utils
+  - r-optparse
+  - bioconductor-biocmanager
+  - bioconductor-minfi
+  - bioconductor-limma
+  - bioconductor-dmrcate
+  - bioconductor-missmethyl
+  - bioconductor-illuminaHumanMethylation450kmanifest
+  - bioconductor-illuminaHumanMethylation450kanno.ilmn12.hg19
+  - bioconductor-illuminaHumanMethylationepicmanifest
+  - bioconductor-illuminaHumanMethylationepicanno.ilm10b4.hg19
