@@ -1,25 +1,20 @@
-# scripts/check_env.R
-# Quick diagnostics to confirm your R + package environment
-
-cat("==== R sessionInfo ====\n")
-print(sessionInfo())
-
-cat("\n==== Key packages ====\n")
 pkgs <- c(
-  "yaml","minfi","limma","DMRcate","missMethyl",
-  "IlluminaHumanMethylation450kmanifest",
+  "limma",
+  "minfi",
   "IlluminaHumanMethylation450kanno.ilmn12.hg19",
-  "IlluminaHumanMethylationEPICmanifest",
-  "IlluminaHumanMethylationEPICanno.ilm10b4.hg19",
-  "ggplot2","matrixStats","R.utils","optparse"
+  "IlluminaHumanMethylation450kmanifest",
+  "RColorBrewer",
+  "missMethyl",
+  "matrixStats",
+  "minfiData",
+  "Gviz",
+  "DMRcate",
+  "stringr"
 )
-for (p in pkgs) {
-  cat(sprintf("%-45s : %s\n", p,
-              if (suppressWarnings(requireNamespace(p, quietly = TRUE)))
-                as.character(utils::packageVersion(p)) else "NOT INSTALLED"))
-}
 
-# Optional: quick GPU/BLAS hints
-cat("\n==== BLAS/LAPACK vendor (if shown) ====\n")
-cap <- capabilities()
-print(cap)
+cat("R:", R.version.string, "\n")
+ok <- sapply(pkgs, function(p) suppressPackageStartupMessages(require(p, character.only = TRUE, quietly = TRUE)))
+print(data.frame(package = pkgs, loaded = ok), row.names = FALSE)
+
+if (!all(ok)) quit(status = 1)
+cat("Environment looks good.\n")
