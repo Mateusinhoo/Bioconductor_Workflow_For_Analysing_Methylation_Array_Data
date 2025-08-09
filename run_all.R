@@ -1,4 +1,5 @@
-# run_all.R — methyCleanr (universal; with sample selection)
+# run_all.R — methyCleanr (universal; with sample selection + structured outputs)
+
 suppressPackageStartupMessages({
   library(yaml); library(minfi); library(limma); library(DMRcate); library(missMethyl)
   library(ggplot2); library(matrixStats); library(R.utils); library(optparse)
@@ -26,9 +27,33 @@ export_opt <- cfg$export
 array_type <- tolower(cfg$array_type %||% "auto")
 select     <- cfg$select
 
-dir.create("outputs", showWarnings = FALSE)
+# -------- OUTPUT LAYOUT --------
+OUT <- list(
+  qc   = "outputs/qc",
+  data = "outputs/data",
+  dmp  = "outputs/dmp",
+  dmr  = "outputs/dmr",
+  go   = "outputs/go",
+  dv   = "outputs/dv",
+  logs = "outputs/logs"
+)
+invisible(lapply(OUT, dir.create, recursive = TRUE, showWarnings = FALSE))
+
+# Simple logger to outputs/logs/run_all.log
+log_file_con <- file(file.path(OUT$logs, "run_all.log"), open = "wt")
+sink(log_file_con, type = "output")
+sink(log_file_con, type = "message")
+.on_exit_log <- function() {
+  try(sink(type="message"), silent = TRUE)
+  try(sink(), silent = TRUE)
+  try(close(log_file_con), silent = TRUE)
+}
+on.exit(.on_exit_log(), add = TRUE)
 
 logmsg <- function(...) cat(sprintf("[%s] ", format(Sys.time(), "%H:%M:%S")), sprintf(...), "\n")
+save_rds <- function(obj, path) { saveRDS(obj, path); logmsg("Wrote %s", path) }
+save_csv <- function(df, path, rn = FALSE) { utils::write.csv(df, path, row.names = rn); logmsg("Wrote %s", path) }
+save_png <- function(expr, path, w=1200, h=700) { png(path, width=w, height=h); force(expr); dev.off(); logmsg("Wrote %s", path) }
 
 # -------- Helpers --------
 normalize_pheno <- function(df) {
@@ -40,7 +65,7 @@ normalize_pheno <- function(df) {
 }
 require_cols <- function(df, cols) {
   miss <- setdiff(cols, names(df))
-  if (length(miss)) stop("Missing columns in phenotype CSV: ", paste(miss, collapse=", "))
+  if (length(miss)) stop("Missing columns in samples.csv: ", paste(miss, collapse=", "))
 }
 apply_selection <- function(pheno, sel) {
   if (is.null(sel) || !isTRUE(sel$enable)) return(pheno)
@@ -67,7 +92,7 @@ apply_selection <- function(pheno, sel) {
       ids <- unique(c(ids, unlist(sel$ids_list)))
     }
     if (length(ids) == 0) stop("No IDs provided for selection.")
-    if (!idcol %in% names(pheno)) stop("ids_column '", idcol, "' not found in phenotype.")
+    if (!idcol %in% names(pheno)) stop("ids_column '", idcol, "' not found in samples.csv.")
     pheno <- pheno[pheno[[idcol]] %in% ids, , drop = FALSE]
   } else {
     stop("Unknown selection method: ", by)
@@ -88,7 +113,8 @@ apply_selection <- function(pheno, sel) {
 
 # -------- Inputs --------
 mode <- tolower(input$mode %||% "idat")
-pheno <- read.csv(input$phenotype_csv %||% "config/phenotype.csv",
+# default to samples.csv (your repo uses this naming)
+pheno <- read.csv(input$phenotype_csv %||% "config/samples.csv",
                   stringsAsFactors = FALSE, check.names = FALSE)
 pheno <- normalize_pheno(pheno)
 
@@ -100,9 +126,9 @@ if (mode == "idat") {
   if (!"Sample_Name" %in% names(pheno)) pheno$Sample_Name <- seq_len(nrow(pheno))
   if (!"Sample_Group" %in% names(pheno)) pheno$Sample_Group <- "Group"
   targets <- pheno[, intersect(c("Sample_Name","Sample_Group","Slide","Array"), names(pheno)), drop = FALSE]
-  write.csv(targets, "outputs/sample_sheet_used.csv", row.names = FALSE)
+  save_csv(targets, file.path(OUT$qc, "sample_sheet_used.csv"))
   idat_dir <- input$idat_dir %||% "data/idats_raw"
-  
+
   if (isTRUE(steps$idat_sanitize)) {
     out <- "data/idats_clean"
     dir.create(out, showWarnings = FALSE, recursive = TRUE)
@@ -116,12 +142,12 @@ if (mode == "idat") {
     }
     idat_dir <- out
   }
-  
+
   logmsg("Reading IDATs from %s ...", idat_dir)
   if (!dir.exists(idat_dir)) stop("IDAT directory does not exist: ", idat_dir)
   rgSet <- read.metharray.exp(base = idat_dir, targets = targets, extended = TRUE, force = TRUE)
-  saveRDS(rgSet, file = "outputs/rgSet.rds")
-  
+  save_rds(rgSet, file.path(OUT$data, "rgSet.rds"))
+
 } else if (mode == "rgset") {
   rg_path <- input$rgset_rds %||% "config/rgSet.rds"
   if (!file.exists(rg_path)) stop("rgSet.rds not found at: ", rg_path)
@@ -131,11 +157,11 @@ if (mode == "idat") {
   sm <- sampleNames(rgSet)
   rownames(pheno) <- pheno$Sample_Name
   if (!all(sm %in% rownames(pheno))) {
-    stop("Phenotype CSV must contain all sample names present in rgSet (Sample_Name column).")
+    stop("samples.csv must contain all sample names present in rgSet (Sample_Name column).")
   }
   pheno <- pheno[sm, , drop=FALSE]
   targets <- pheno[, intersect(c("Sample_Name","Sample_Group","Slide","Array"), names(pheno)), drop = FALSE]
-  write.csv(targets, "outputs/sample_sheet_used.csv", row.names = FALSE)
+  save_csv(targets, file.path(OUT$qc, "sample_sheet_used.csv"))
 } else {
   stop("Unknown input mode: ", mode)
 }
@@ -160,68 +186,73 @@ ann_obj <- switch(ann_choice,
 if (isTRUE(steps$qc)) {
   logmsg("Computing detection P-values...")
   detP <- detectionP(rgSet)
-  saveRDS(detP, "outputs/detectionP.rds")
-  png("outputs/mean_detection_p_per_sample.png", width = 1200, height = 700)
-  barplot(colMeans(detP, na.rm = TRUE), las = 2, ylab = "Mean detection P-value")
-  abline(h = qc$detP_threshold %||% 0.01, lty = 2)
-  dev.off()
+  save_rds(detP, file.path(OUT$data, "detectionP.rds"))
+
+  save_png({
+    barplot(colMeans(detP, na.rm = TRUE), las = 2, ylab = "Mean detection P-value")
+    abline(h = qc$detP_threshold %||% 0.01, lty = 2)
+  }, file.path(OUT$qc, "mean_detection_p_per_sample.png"))
+
   try(qcReport(rgSet, sampNames = targets$Sample_Name, sampGroups = targets$Sample_Group,
-               pdf = "outputs/qcReport.pdf"), silent = TRUE)
+               pdf = file.path(OUT$qc, "qcReport.pdf")), silent = TRUE)
 }
 
 # -------- Normalization --------
 if (isTRUE(steps$normalize)) {
   logmsg("Normalizing (Noob -> Quantile)...")
   mSet.noob <- preprocessNoob(rgSet)
-  mSet <- preprocessQuantile(mSet.noob)
-  saveRDS(mSet, "outputs/mSet.rds")
+  mSet <- preprocessQuantile(mSet.noob)         # swap with preprocessFunnorm(rgSet) if desired
+  save_rds(mSet, file.path(OUT$data, "mSet.rds"))
   beta <- getBeta(mSet); M <- getM(mSet)
-  saveRDS(beta, "outputs/beta_raw.rds"); saveRDS(M, "outputs/M_raw.rds")
+  save_rds(beta, file.path(OUT$data, "beta_raw.rds"))
+  save_rds(M,    file.path(OUT$data, "M_raw.rds"))
 } else {
-  mSet <- readRDS("outputs/mSet.rds")
-  beta <- readRDS("outputs/beta_raw.rds"); M <- readRDS("outputs/M_raw.rds")
+  mSet <- readRDS(file.path(OUT$data, "mSet.rds"))
+  beta <- readRDS(file.path(OUT$data, "beta_raw.rds"))
+  M    <- readRDS(file.path(OUT$data, "M_raw.rds"))
 }
 
 # -------- Explore --------
 if (isTRUE(steps$explore)) {
   logmsg("Generating density & MDS plots...")
-  png("outputs/beta_density.png", width = 1200, height = 700)
-  plotDensities(beta, main = "Beta densities (post-normalization)")
-  dev.off()
-  png("outputs/mds.png", width = 1200, height = 700)
-  plotMDS(getM(mSet), top = 1000, gene.selection = "common",
-          labels = targets$Sample_Name, col = as.numeric(factor(targets$Sample_Group)))
-  dev.off()
+  save_png({ minfi::plotDensities(beta, main = "Beta densities (post-normalization)") },
+           file.path(OUT$qc, "beta_density.png"))
+  save_png({
+    plotMDS(getM(mSet), top = 1000, gene.selection = "common",
+            labels = targets$Sample_Name, col = as.numeric(factor(targets$Sample_Group)))
+  }, file.path(OUT$qc, "mds.png"))
 }
 
 # -------- Filtering --------
 if (isTRUE(steps$filter)) {
   logmsg("Filtering probes...")
-  detP <- if (exists("detP")) detP else readRDS("outputs/detectionP.rds")
-  keep_det <- rowMeans(detP < (qc$detP_threshold %||% 0.01), na.rm = TRUE) >= (qc$detP_fraction_pass %||% 0.90)
+  detP <- if (exists("detP")) detP else readRDS(file.path(OUT$data, "detectionP.rds"))
+  keep_det   <- rowMeans(detP < (qc$detP_threshold %||% 0.01), na.rm = TRUE) >= (qc$detP_fraction_pass %||% 0.90)
   keep_nonNA <- rowMeans(is.na(beta)) <= (qc$max_na_fraction %||% 0.05)
+
   ann <- getAnnotation(ann_obj)
   sex_mask <- ann$chr %in% c("chrX","chrY")
   keep_sex <- if (isTRUE(qc$remove_sex)) !sex_mask else rep(TRUE, length(sex_mask))
+
   idx <- match(rownames(beta), rownames(ann))
   keep <- keep_det & keep_nonNA & keep_sex[idx]
-  
+
   if ((extra$cross_reactive_list %||% "") != "") {
-    xr <- readLines(extra$cross_reactive_list)
+    xr <- unique(trimws(readLines(extra$cross_reactive_list)))
     keep <- keep & !(rownames(beta) %in% xr)
   }
   if ((extra$snp_probes_list %||% "") != "") {
-    sp <- readLines(extra$snp_probes_list)
+    sp <- unique(trimws(readLines(extra$snp_probes_list)))
     keep <- keep & !(rownames(beta) %in% sp)
   }
-  
+
   beta_f <- beta[keep,,drop=FALSE]; M_f <- M[keep,,drop=FALSE]
-  saveRDS(beta_f, "outputs/beta_filtered.rds")
-  saveRDS(M_f, "outputs/M_filtered.rds")
-  write.csv(data.frame(probes_kept=sum(keep)), "outputs/filter_summary.csv", row.names = FALSE)
-  
-  if (isTRUE(export_opt$beta_csv)) write.csv(beta_f, gzfile("outputs/beta_filtered.csv.gz"))
-  if (isTRUE(export_opt$M_csv)) write.csv(M_f, gzfile("outputs/M_filtered.csv.gz"))
+  save_rds(beta_f, file.path(OUT$data, "beta_filtered.rds"))
+  save_rds(M_f,    file.path(OUT$data, "M_filtered.rds"))
+
+  utils::write.table(rownames(beta_f), file.path(OUT$data, "filtered_probe_ids.txt"),
+                     row.names = FALSE, col.names = FALSE, quote = FALSE)
+  save_csv(data.frame(probes_kept = sum(keep)), file.path(OUT$qc, "filter_summary.csv"))
 }
 
 # -------- Modeling helpers --------
@@ -237,59 +268,83 @@ parse_contrast <- function(contrast, design) {
 # -------- DMP --------
 if (isTRUE(steps$dmp)) {
   logmsg("Probe-wise DMP (limma)...")
-  Mwork <- if (isTRUE(steps$filter)) readRDS("outputs/M_filtered.rds") else readRDS("outputs/M_raw.rds")
+  Mwork <- if (isTRUE(steps$filter)) readRDS(file.path(OUT$data, "M_filtered.rds")) else readRDS(file.path(OUT$data, "M_raw.rds"))
   dd <- get_design(targets, cfg$model$group_column %||% "Sample_Group")
   cont <- parse_contrast(cfg$model$contrast %||% "Case- Control", dd$design)
-  fit <- lmFit(Mwork, dd$design)
+
+  fit  <- lmFit(Mwork, dd$design)
   fit2 <- contrasts.fit(fit, cont); fit2 <- eBayes(fit2)
-  dmp <- topTable(fit2, number = Inf, adjust.method = "BH")
-  write.csv(dmp, "outputs/DMP_results.csv")
-  png("outputs/volcano_dmp.png", width = 1100, height = 800)
-  with(dmp, { plot(logFC, -log10(P.Value), pch=20, xlab="logFC (M)", ylab="-log10 P"); abline(v=c(-1,1), lty=2); abline(h=1.3, lty=2) })
-  dev.off()
+  dmp  <- topTable(fit2, number = Inf, adjust.method = "BH")
+  utils::write.csv(dmp, file.path(OUT$dmp, "DMP_results.csv"), row.names = TRUE)
+  logmsg("Wrote %s", file.path(OUT$dmp, "DMP_results.csv"))
+
+  save_png({
+    with(dmp, {
+      plot(logFC, -log10(P.Value), pch=20, xlab="logFC (M)", ylab="-log10 P")
+      abline(v=c(-1,1), lty=2); abline(h=1.3, lty=2)
+    })
+  }, file.path(OUT$dmp, "volcano_dmp.png"), w=1100, h=800)
 }
 
 # -------- DMR --------
 if (isTRUE(steps$dmr)) {
   logmsg("Regional DMRs (DMRcate)...")
-  Mwork <- if (isTRUE(steps$filter)) readRDS("outputs/M_filtered.rds") else readRDS("outputs/M_raw.rds")
+  Mwork <- if (isTRUE(steps$filter)) readRDS(file.path(OUT$data, "M_filtered.rds")) else readRDS(file.path(OUT$data, "M_raw.rds"))
   dd <- get_design(targets, cfg$model$group_column %||% "Sample_Group")
   cont <- parse_contrast(cfg$model$contrast %||% "Case- Control", dd$design)
-  ann <- getAnnotation(ann_obj)
+  annDf <- getAnnotation(ann_obj)
+
   myAnnot <- cpg.annotate(object="array", datatype="array", what="M", analysis.type="differential",
                           x=Mwork, design=dd$design, contrasts=TRUE, cont.matrix=cont, coef=1,
-                          fdr=0.05, annotation=ann)
+                          fdr=0.05, annotation=annDf)
   dmrcoutput <- dmrcate(myAnnot, lambda=1000, C=2)
   ranges <- extractRanges(dmrcoutput, genome="hg19")
-  saveRDS(ranges, "outputs/DMR_ranges.rds")
+  save_rds(ranges, file.path(OUT$dmr, "DMR_ranges.rds"))
+
+  dmr_df <- tryCatch({
+    data.frame(
+      chr     = as.character(GenomicRanges::seqnames(ranges)),
+      start   = GenomicRanges::start(ranges),
+      end     = GenomicRanges::end(ranges),
+      width   = GenomicRanges::width(ranges),
+      no_cpgs = GenomicRanges::mcols(ranges)[,"no.cpgs"],
+      mean_fc = suppressWarnings(GenomicRanges::mcols(ranges)[,"meanbetafc"]),
+      stringsAsFactors = FALSE
+    )
+  }, error = function(e) NULL)
+  if (!is.null(dmr_df)) save_csv(dmr_df, file.path(OUT$dmr, "DMR_summary.csv"))
 }
 
 # -------- GO --------
 if (isTRUE(steps$go)) {
   logmsg("GO testing (gometh)...")
-  dmp <- read.csv("outputs/DMP_results.csv", stringsAsFactors = FALSE)
-  Mwork <- if (isTRUE(steps$filter)) readRDS("outputs/M_filtered.rds") else readRDS("outputs/M_raw.rds")
+  dmp <- utils::read.csv(file.path(OUT$dmp, "DMP_results.csv"), stringsAsFactors = FALSE)
+  Mwork <- if (isTRUE(steps$filter)) readRDS(file.path(OUT$data, "M_filtered.rds")) else readRDS(file.path(OUT$data, "M_raw.rds"))
   sig <- dmp$X[dmp$adj.P.Val < 0.05]
   go <- gometh(sig.cpg = sig, all.cpg = rownames(Mwork), collection="GO",
                array.type = ifelse(ann_choice=='EPIC','EPIC','450K'), plot.bias=FALSE)
-  write.csv(go, "outputs/GO_results.csv")
+  utils::write.csv(go, file.path(OUT$go, "GO_results.csv"), row.names = TRUE)
+  logmsg("Wrote %s", file.path(OUT$go, "GO_results.csv"))
 }
 
 # -------- Differential variability --------
 if (isTRUE(steps$dv)) {
   logmsg("Differential variability (limma varFit)...")
-  Mwork <- if (isTRUE(steps$filter)) readRDS("outputs/M_filtered.rds") else readRDS("outputs/M_raw.rds")
+  Mwork <- if (isTRUE(steps$filter)) readRDS(file.path(OUT$data, "M_filtered.rds")) else readRDS(file.path(OUT$data, "M_raw.rds"))
   g <- factor(targets[[cfg$model$group_column %||% "Sample_Group"]])
   design_dv <- model.matrix(~ g)
   fitvar <- varFit(Mwork, design=design_dv, coef=2)
   dv <- topVar(fitvar, number=Inf, adjust.method="BH")
-  write.csv(dv, "outputs/DV_results.csv")
+  utils::write.csv(dv, file.path(OUT$dv, "DV_results.csv"), row.names = TRUE)
+  logmsg("Wrote %s", file.path(OUT$dv, "DV_results.csv"))
 }
 
 # -------- Cell-type composition note --------
 if (isTRUE(steps$celltype_note)) {
-  writeLines("Cell-type deconvolution requires a tissue-appropriate reference; standard Houseman (blood) is not suitable for solid tissues like kidney. Consider reference-free or organ-specific references.", "outputs/celltype_note.txt")
+  writeLines("Cell-type deconvolution requires a tissue-appropriate reference; standard Houseman (blood) is not suitable for solid tissues like kidney. Consider reference-free or organ-specific references.",
+             file.path(OUT$logs, "celltype_note.txt"))
 }
 
-sink("outputs/session_info.txt"); print(sessionInfo()); sink()
+# -------- Session info --------
+utils::writeLines(capture.output(sessionInfo()), con = file.path(OUT$logs, "session_info.txt"))
 logmsg("Done. Check outputs/.")
