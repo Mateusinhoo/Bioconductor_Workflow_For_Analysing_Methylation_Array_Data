@@ -260,6 +260,10 @@ if (isTRUE(steps$normalize)) {
   beta <- getBeta(mSet)
   M    <- getM(mSet)
 
+  save_rds(mSet, file.path(OUT$data, "mSet_normalized.rds"))
+  save_rds(M,    file.path(OUT$data, "M_raw.rds"))
+  save_rds(beta, file.path(OUT$data, "beta_raw.rds"))
+
 # -------- Explore --------
 if (isTRUE(steps$explore)) {
   logmsg("Generating density & MDS plots...")
