@@ -1,7 +1,10 @@
 name: methylation-env
 channels:
   - conda-forge
-  - nodefaults
+  - bioconda
+  - defaults
+channel_priority: strict
+
 dependencies:
   - r-base=4.3.*
   - r-biocmanager
