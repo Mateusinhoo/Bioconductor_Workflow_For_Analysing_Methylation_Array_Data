@@ -1,0 +1,37 @@
+# Global configuration for methyCleanr
+project_name: "example_project"
+
+# Path to IDATs (recursive). Keep default; run_all.R uses this relative path.
+idat_dir: "data/idats_raw"
+
+# Phenotype / sample sheet. Either provide a minfi-ready SampleSheet with columns
+# Sample_Name, Sample_Group, Slide, Array OR point to a CSV with at least Slide, Array.
+phenotype_csv: "config/phenotype_example.csv"
+
+# Array type: one of [auto, 450k, epic]
+array_type: "auto"
+
+# Cleaning pipeline thresholds
+qc:
+  detP_threshold: 0.01          # detection P cutoff
+  detP_fraction_pass: 0.90      # keep probes passing in >= this fraction of samples
+  max_na_fraction: 0.05         # drop probes with NA fraction > this
+  remove_sex: false             # drop chrX/chrY probes
+
+# Steps to run
+steps:
+  load: true
+  qc: true
+  normalize: true
+  explore: true
+  filter: true
+  dmp: false
+  dmr: false
+  go: false
+  dv: false
+  celltype: false
+
+# Modeling (used if dmp/dmr/dv true)
+model:
+  group_column: "Sample_Group"
+  contrast: "Case- Control"   # space after '-' is fine; parsed as 'Case - Control'
