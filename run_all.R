@@ -242,22 +242,24 @@ if (isTRUE(steps$normalize)) {
   norm_method <- tolower(cfg$normalization$method %||% "noob_quantile")
   logmsg("Normalizing with method: %s ...", norm_method)
 
+  # Pre-normalization density (raw intensities)
+  save_png({
+    beta_pre <- getBeta(preprocessRaw(rgSet))
+    minfi::plotDensities(beta_pre, main = "Beta densities (pre-normalization)")
+  }, file.path(OUT$qc, "beta_density_pre.png"))
+
   if (norm_method == "funnorm") {
     mSet <- preprocessFunnorm(rgSet)
+  } else if (norm_method == "noob_quantile") {
+    mSet_noob <- preprocessNoob(rgSet)      # keep for debugging if needed
+    mSet <- preprocessQuantile(mSet_noob)
   } else {
-    mSet.noob <- preprocessNoob(rgSet)
-    mSet <- preprocessQuantile(mSet.noob)
+    stop(sprintf("Unknown normalization method: %s", norm_method))
   }
 
-  save_rds(mSet, file.path(OUT$data, "mSet.rds"))
-  beta <- getBeta(mSet); M <- getM(mSet)
-  save_rds(beta, file.path(OUT$data, "beta_raw.rds"))
-  save_rds(M,    file.path(OUT$data, "M_raw.rds"))
-} else {
-  mSet <- readRDS(file.path(OUT$data, "mSet.rds"))
-  beta <- readRDS(file.path(OUT$data, "beta_raw.rds"))
-  M    <- readRDS(file.path(OUT$data, "M_raw.rds"))
-}
+  # Extract Beta and M
+  beta <- getBeta(mSet)
+  M    <- getM(mSet)
 
 # -------- Explore --------
 if (isTRUE(steps$explore)) {
