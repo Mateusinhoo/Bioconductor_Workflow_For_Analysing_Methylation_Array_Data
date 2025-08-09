@@ -7,7 +7,7 @@ suppressPackageStartupMessages({
 
 `%||%` <- function(a,b) if (!is.null(a)) a else b
 
-# -------- CLI (optional) --------
+# -------- CLI --------
 opt_list <- list(
   make_option(c("-c","--config"), type="character", default="config/config.yaml",
               help="Path to config.yaml [default: %default]")
@@ -97,11 +97,10 @@ apply_selection <- function(pheno, sel) {
   } else {
     stop("Unknown selection method: ", by)
   }
-  # Optional: keep certain types
   if (!is.null(sel$keep_types) && length(sel$keep_types) > 0 && "Type" %in% names(pheno)) {
     pheno <- pheno[pheno$Type %in% sel$keep_types, , drop = FALSE]
   }
-  # Optional: limit N
+  # Limit N
   if (!is.null(sel$limit_n)) {
     n <- as.integer(sel$limit_n)
     if (!is.na(n) && n > 0 && n < nrow(pheno)) {
