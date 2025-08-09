@@ -2,7 +2,7 @@ project_name: "example_project"
 
 input:
   mode: "idat"                 # "idat" or "rgset"
-  idat_dir: "data/idats_raw"   # change to your local absolute path if not using repo folder
+  idat_dir: "/Volumes/LaCie/data"   # change to your local absolute path if not using repo folder
   phenotype_csv: "config/samples.csv"
   rgset_rds: "config/rgSet.rds"
 
