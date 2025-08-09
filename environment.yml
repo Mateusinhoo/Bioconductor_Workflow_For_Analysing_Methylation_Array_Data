@@ -4,9 +4,11 @@ channels:
   - bioconda
   - nodefaults
 dependencies:
-  - r-base=4.3
+  # R core
+  - r-base=4.4.*          
   - pandoc
-  - r-biocmanager
+
+  # CRAN 
   - r-optparse
   - r-yaml
   - r-data.table
@@ -19,26 +21,17 @@ dependencies:
   - r-here
   - r-janitor
   - r-matrixstats
+  - r-rcolorbrewer
 
-  # Bioconductor + deps
+  # Bioconductor 
   - bioconductor-minfi
-  - bioconductor-missmethyl
-  - bioconductor-minfidata
   - bioconductor-illuminaHumanMethylation450kmanifest
   - bioconductor-illuminaHumanMethylation450kanno.ilmn12.hg19
+  - bioconductor-missmethyl
+  - bioconductor-minfidata
+  - bioconductor-gviz
+  - bioconductor-dmrcate
+  - bioconductor-limma
+  - bioconductor-genefilter
   - bioconductor-biocparallel
   - bioconductor-rsamtools
-  - r-limma
-  - r-deldir
-  - r-hmisc
-  - r-statmod
-  - r-mclust
-  - r-genefilter
-
-  # CRAN deps 
-  - r-limma
-  - r-statmod
-  - r-hmisc
-  - r-mclust
-  - r-genefilter
-  - r-deldir
