@@ -15,7 +15,7 @@ qc:
   remove_sex: false
 
   normalization:
-  method: "noob_quantile"      # options: "noob_quantile" or "funnorm"
+  method: "funnorm"      # options: "noob_quantile" or "funnorm"
 
 extra_filters:
   cross_reactive_list: ""
