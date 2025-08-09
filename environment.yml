@@ -34,3 +34,11 @@ dependencies:
   - r-statmod
   - r-mclust
   - r-genefilter
+
+  # CRAN deps 
+  - r-limma
+  - r-statmod
+  - r-hmisc
+  - r-mclust
+  - r-genefilter
+  - r-deldir
