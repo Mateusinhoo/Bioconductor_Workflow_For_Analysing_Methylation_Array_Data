@@ -2,10 +2,9 @@ name: methylation-env
 channels:
   - conda-forge
   - bioconda
-  - nodefaults
 dependencies:
-  # R core
-  - r-base=4.4.*          
+  # Core
+  - r-base=4.4.*
   - pandoc
 
   # CRAN 
@@ -22,16 +21,19 @@ dependencies:
   - r-janitor
   - r-matrixstats
   - r-rcolorbrewer
+  - r-r.utils
 
-  # Bioconductor 
-  - bioconductor-minfi
-  - bioconductor-illuminaHumanMethylation450kmanifest
-  - bioconductor-illuminaHumanMethylation450kanno.ilmn12.hg19
-  - bioconductor-missmethyl
-  - bioconductor-minfidata
-  - bioconductor-gviz
-  - bioconductor-dmrcate
+  # Bioconductor
   - bioconductor-limma
   - bioconductor-genefilter
   - bioconductor-biocparallel
   - bioconductor-rsamtools
+  - bioconductor-minfi
+  - bioconductor-missmethyl
+  - bioconductor-gviz
+  - bioconductor-dmrcate
+  - bioconductor-minfidata
+  - bioconductor-illuminaHumanMethylation450kmanifest
+  - bioconductor-illuminaHumanMethylation450kanno.ilmn12.hg19
+  - bioconductor-illuminaHumanMethylationepicmanifest
+  - bioconductor-illuminaHumanMethylationepicanno.ilm10b4.hg19
