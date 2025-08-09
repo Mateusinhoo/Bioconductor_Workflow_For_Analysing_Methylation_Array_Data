@@ -200,6 +200,43 @@ if (isTRUE(steps$qc)) {
                pdf = file.path(OUT$qc, "qcReport.pdf")), silent = TRUE)
 }
 
+# Compute per-sample QC metrics
+  thr <- qc$detP_threshold %||% 0.01
+  sample_mean_detP <- colMeans(detP, na.rm = TRUE)
+  sample_failed_frac <- colMeans(detP > thr, na.rm = TRUE)
+
+# Decide samples to drop
+  bad_mean   <- sample_mean_detP > (qc$sample_mean_detP_max %||% 0.01)
+  bad_failed <- sample_failed_frac > (qc$sample_max_failed_frac %||% 0.05)
+
+  drop_idx <- which(bad_mean | bad_failed)
+  qc_tbl <- data.frame(
+    Sample = colnames(detP),
+    mean_detP = sample_mean_detP,
+    failed_frac = sample_failed_frac,
+    drop_mean = bad_mean,
+    drop_failed = bad_failed,
+    drop = (bad_mean | bad_failed)
+  )
+
+# Save QC summary + plot
+  save_csv(qc_tbl, file.path(OUT$qc, "sample_qc_summary.csv"))
+  save_png({
+    op <- par(mfrow=c(1,2), mar=c(8,4,2,1))
+    barplot(sample_mean_detP, las=2, ylab="Mean detP"); abline(h=thr, lty=2, col="red")
+    barplot(sample_failed_frac, las=2, ylab=sprintf("Frac detP > %.2g", thr)); abline(h=(qc$sample_max_failed_frac %||% 0.05), lty=2, col="red")
+    par(op)
+  }, file.path(OUT$qc, "sample_qc_bars.png"))
+
+# Apply sample filtering if needed
+  if (length(drop_idx) > 0) {
+    logmsg("Dropping %d low-quality samples: %s", length(drop_idx), paste(colnames(detP)[drop_idx], collapse=", "))
+    keep_samples <- setdiff(seq_len(ncol(rgSet)), drop_idx)
+    rgSet   <- rgSet[, keep_samples]
+    detP    <- detP[, keep_samples, drop=FALSE]
+    targets <- targets[keep_samples, , drop=FALSE]
+  }
+
 # -------- Normalization --------
 if (isTRUE(steps$normalize)) {
   norm_method <- tolower(cfg$normalization$method %||% "noob_quantile")
