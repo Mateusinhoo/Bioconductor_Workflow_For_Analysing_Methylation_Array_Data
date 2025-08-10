@@ -145,6 +145,32 @@ if (mode == "idat") {
     idat_dir <- out
   }
 
+    # --- using samples.csv (not Illumina SampleSheet) ---
+  pheno <- read.csv(input$phenotype_csv %||% "config/samples.csv",
+                    stringsAsFactors = FALSE, check.names = FALSE)
+  pheno <- normalize_pheno(pheno)         # converts Sentrix ID/Position -> Slide/Array
+  pheno <- apply_selection(pheno, select)
+  if (nrow(pheno) == 0) stop("No rows selected from samples.csv.")
+
+  require_cols(pheno, c("Slide","Array"))
+  if (!"Sample_Name"  %in% names(pheno)) pheno$Sample_Name  <- seq_len(nrow(pheno))
+  if (!"Sample_Group" %in% names(pheno)) pheno$Sample_Group <- "Group"
+
+  targets <- pheno[, intersect(c("Sample_Name","Sample_Group","Slide","Array"), names(pheno)), drop = FALSE]
+  targets$Basename <- paste(targets$Slide, targets$Array, sep = "_")  # e.g., 204093740059_R01C01
+  save_csv(targets, file.path(OUT$qc, "sample_sheet_used.csv"))
+
+  # check
+  bn <- file.path(idat_dir, targets$Basename[1])
+  ok <- (file.exists(paste0(bn, "_Red.idat")) || file.exists(paste0(bn, "_Red.idat.gz"))) &&
+        (file.exists(paste0(bn, "_Grn.idat")) || file.exists(paste0(bn, "_Grn.idat.gz")))
+  logmsg("First sample IDATs present: %s", ok)
+
+  # read IDATs
+  logmsg("Reading IDATs from %s ...", idat_dir)
+  rgSet <- read.metharray.exp(base = idat_dir, targets = targets, extended = TRUE, force = TRUE)
+  save_rds(rgSet, file.path(OUT$data, "rgSet.rds"))
+
   logmsg("Reading IDATs from %s ...", idat_dir)
   if (!dir.exists(idat_dir)) stop("IDAT directory does not exist: ", idat_dir)
   rgSet <- read.metharray.exp(base = idat_dir, targets = targets, extended = TRUE, force = TRUE)
