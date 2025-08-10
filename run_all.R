@@ -100,7 +100,6 @@ apply_selection <- function(pheno, sel) {
   if (!is.null(sel$keep_types) && length(sel$keep_types) > 0 && "Type" %in% names(pheno)) {
     pheno <- pheno[pheno$Type %in% sel$keep_types, , drop = FALSE]
   }
-  # Limit N
   if (!is.null(sel$limit_n)) {
     n <- as.integer(sel$limit_n)
     if (!is.na(n) && n > 0 && n < nrow(pheno)) {
@@ -112,17 +111,15 @@ apply_selection <- function(pheno, sel) {
 
 # -------- Inputs --------
 mode <- tolower(input$mode %||% "idat")
-# default to samples.csv (your repo uses this naming)
 pheno <- read.csv(input$phenotype_csv %||% "config/samples.csv",
                   stringsAsFactors = FALSE, check.names = FALSE)
 pheno <- normalize_pheno(pheno)
-
-# Apply selection BEFORE building targets
 pheno <- apply_selection(pheno, select)
 if (nrow(pheno) == 0) {
   stop("No rows selected from samples.csv. Check your select block in config/config.yaml.")
 }
 
+# -------- Read data --------
 if (mode == "idat") {
   idat_dir <- input$idat_dir %||% "data/idats_raw"
 
@@ -140,37 +137,24 @@ if (mode == "idat") {
     idat_dir <- out
   }
 
-  # use samples.csv (already read into `pheno` above)
   require_cols(pheno, c("Slide","Array"))
+  if (!"Sample_Name"  %in% names(pheno))  pheno$Sample_Name  <- seq_len(nrow(pheno))
+  if (!"Sample_Group" %in% names(pheno)) pheno$Sample_Group <- if ("Type" %in% names(pheno)) pheno$Type else "Group"
 
-  # set Sample_Name / Sample_Group
-  if (!"Sample_Name" %in% names(pheno))  pheno$Sample_Name  <- seq_len(nrow(pheno))
-  if (!"Sample_Group" %in% names(pheno)) {
-    pheno$Sample_Group <- if ("Type" %in% names(pheno)) pheno$Type else "Group"
-  }
-
-  # build targets with Basename
   targets <- pheno[, intersect(c("Sample_Name","Sample_Group","Slide","Array"), names(pheno)), drop = FALSE]
   targets$Basename <- paste(targets$Slide, targets$Array, sep = "_")
   save_csv(targets, file.path(OUT$qc, "sample_sheet_used.csv"))
 
-  # quick existence check for the first sample
-  bn <- file.path(idat_dir, targets$Basename[1])
-  ok <- (file.exists(paste0(bn, "_Red.idat")) || file.exists(paste0(bn, "_Red.idat.gz"))) &&
-        (file.exists(paste0(bn, "_Grn.idat")) || file.exists(paste0(bn, "_Grn.idat.gz")))
-  logmsg("First sample IDATs present: %s", ok)
-
-  # read IDATs once
   logmsg("Reading IDATs from %s ...", idat_dir)
   if (!dir.exists(idat_dir)) stop("IDAT directory does not exist: ", idat_dir)
   rgSet <- read.metharray.exp(base = idat_dir, targets = targets, extended = TRUE, force = TRUE)
   save_rds(rgSet, file.path(OUT$data, "rgSet.rds"))
-} else if (mode == "rgset") {
 
-{
+} else if (mode == "rgset") {
   rg_path <- input$rgset_rds %||% "config/rgSet.rds"
   if (!file.exists(rg_path)) stop("rgSet.rds not found at: ", rg_path)
   rgSet <- readRDS(rg_path)
+
   require_cols(pheno, c("Sample_Name"))
   if (!"Sample_Group" %in% names(pheno)) pheno$Sample_Group <- "Group"
   sm <- sampleNames(rgSet)
@@ -185,7 +169,7 @@ if (mode == "idat") {
   stop("Unknown input mode: ", mode)
 }
 
-# -------- Array type detection --------
+# -------- Array type detection & annotations --------
 ann_choice <- NULL
 if (tolower(array_type) == "auto") {
   ann <- annotation(rgSet)
@@ -196,16 +180,22 @@ if (tolower(array_type) == "auto") {
 logmsg("Array type selected: %s", ann_choice)
 
 if (ann_choice == "EPIC") {
+  if (!requireNamespace("IlluminaHumanMethylationEPICanno.ilm10b4.hg19", quietly = TRUE)) {
+    stop("Missing package IlluminaHumanMethylationEPICanno.ilm10b4.hg19. Please install it (e.g. via BiocManager::install).")
+  }
   library(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
   ann_obj <- IlluminaHumanMethylationEPICanno.ilm10b4.hg19
 } else if (ann_choice == "450K") {
+  if (!requireNamespace("IlluminaHumanMethylation450kanno.ilmn12.hg19", quietly = TRUE)) {
+    stop("Missing package IlluminaHumanMethylation450kanno.ilmn12.hg19. Please install it (e.g. via BiocManager::install).")
+  }
   library(IlluminaHumanMethylation450kanno.ilmn12.hg19)
   ann_obj <- IlluminaHumanMethylation450kanno.ilmn12.hg19
 } else {
   stop("Unknown array type: ", ann_choice)
 }
 
-# -------- QC --------
+# -------- QC (optional) --------
 if (isTRUE(steps$qc)) {
   logmsg("Computing detection P-values...")
   detP <- detectionP(rgSet)
@@ -218,14 +208,12 @@ if (isTRUE(steps$qc)) {
 
   try(qcReport(rgSet, sampNames = targets$Sample_Name, sampGroups = targets$Sample_Group,
                pdf = file.path(OUT$qc, "qcReport.pdf")), silent = TRUE)
-}
 
-# Compute per-sample QC metrics
+  # Per-sample QC metrics + optional dropping
   thr <- qc$detP_threshold %||% 0.01
-  sample_mean_detP <- colMeans(detP, na.rm = TRUE)
+  sample_mean_detP   <- colMeans(detP, na.rm = TRUE)
   sample_failed_frac <- colMeans(detP > thr, na.rm = TRUE)
 
-# Decide samples to drop
   bad_mean   <- sample_mean_detP > (qc$sample_mean_detP_max %||% 0.01)
   bad_failed <- sample_failed_frac > (qc$sample_max_failed_frac %||% 0.05)
 
@@ -238,17 +226,15 @@ if (isTRUE(steps$qc)) {
     drop_failed = bad_failed,
     drop = (bad_mean | bad_failed)
   )
-
-# Save QC summary + plot
   save_csv(qc_tbl, file.path(OUT$qc, "sample_qc_summary.csv"))
+
   save_png({
     op <- par(mfrow=c(1,2), mar=c(8,4,2,1))
-    barplot(sample_mean_detP, las=2, ylab="Mean detP"); abline(h=thr, lty=2, col="red")
-    barplot(sample_failed_frac, las=2, ylab=sprintf("Frac detP > %.2g", thr)); abline(h=(qc$sample_max_failed_frac %||% 0.05), lty=2, col="red")
+    barplot(sample_mean_detP, las=2, ylab="Mean detP"); abline(h=thr, lty=2)
+    barplot(sample_failed_frac, las=2, ylab=sprintf("Frac detP > %.2g", thr)); abline(h=(qc$sample_max_failed_frac %||% 0.05), lty=2)
     par(op)
   }, file.path(OUT$qc, "sample_qc_bars.png"))
 
-# Apply sample filtering if needed
   if (length(drop_idx) > 0) {
     logmsg("Dropping %d low-quality samples: %s", length(drop_idx), paste(colnames(detP)[drop_idx], collapse=", "))
     keep_samples <- setdiff(seq_len(ncol(rgSet)), drop_idx)
@@ -256,13 +242,14 @@ if (isTRUE(steps$qc)) {
     detP    <- detP[, keep_samples, drop=FALSE]
     targets <- targets[keep_samples, , drop=FALSE]
   }
+}
 
 # -------- Normalization --------
 if (isTRUE(steps$normalize)) {
   norm_method <- tolower(cfg$normalization$method %||% "noob_quantile")
   logmsg("Normalizing with method: %s ...", norm_method)
 
-  # Pre-normalization density (raw intensities)
+  # Pre-normalization density
   save_png({
     beta_pre <- getBeta(preprocessRaw(rgSet))
     minfi::plotDensities(beta_pre, main = "Beta densities (pre-normalization)")
@@ -271,19 +258,19 @@ if (isTRUE(steps$normalize)) {
   if (norm_method == "funnorm") {
     mSet <- preprocessFunnorm(rgSet)
   } else if (norm_method == "noob_quantile") {
-    mSet_noob <- preprocessNoob(rgSet)      # keep for debugging if needed
+    mSet_noob <- preprocessNoob(rgSet)
     mSet <- preprocessQuantile(mSet_noob)
   } else {
     stop(sprintf("Unknown normalization method: %s", norm_method))
   }
 
-  # Extract Beta and M
   beta <- getBeta(mSet)
   M    <- getM(mSet)
 
   save_rds(mSet, file.path(OUT$data, "mSet_normalized.rds"))
   save_rds(M,    file.path(OUT$data, "M_raw.rds"))
   save_rds(beta, file.path(OUT$data, "beta_raw.rds"))
+}
 
 # -------- Explore --------
 if (isTRUE(steps$explore)) {
@@ -299,7 +286,18 @@ if (isTRUE(steps$explore)) {
 # -------- Filtering --------
 if (isTRUE(steps$filter)) {
   logmsg("Filtering probes...")
-  detP <- if (exists("detP")) detP else readRDS(file.path(OUT$data, "detectionP.rds"))
+
+  # Ensure detP exists even if QC step was skipped
+  if (!exists("detP")) {
+    detp_path <- file.path(OUT$data, "detectionP.rds")
+    if (file.exists(detp_path)) {
+      detP <- readRDS(detp_path)
+    } else {
+      detP <- detectionP(rgSet)
+      save_rds(detP, detp_path)
+    }
+  }
+
   keep_det   <- rowMeans(detP < (qc$detP_threshold %||% 0.01), na.rm = TRUE) >= (qc$detP_fraction_pass %||% 0.90)
   keep_nonNA <- rowMeans(is.na(beta)) <= (qc$max_na_fraction %||% 0.05)
 
